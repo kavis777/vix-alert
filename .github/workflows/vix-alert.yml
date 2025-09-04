@@ -1,0 +1,28 @@
+name: vix-alert
+
+on:
+  schedule:
+    # 22:30 UTC = 翌日 07:30 JST
+    - cron: '30 22 * * *'
+  workflow_dispatch: {}  # 手動実行も可能
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: vix-alert-daily
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Run VIX alert
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          THRESHOLD: ${{ vars.THRESHOLD }}
+          DRY_RUN: ${{ vars.DRY_RUN }}
+        run: python script/vix_alert.py
