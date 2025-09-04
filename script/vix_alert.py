@@ -1,6 +1,5 @@
 # script/vix_alert.py
 import os
-import sys
 import csv
 import io
 from urllib.request import urlopen, Request
@@ -8,7 +7,6 @@ import requests
 
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS"
 
-# 必須環境変数
 THRESHOLD = float(os.getenv("THRESHOLD"))
 TO_EMAIL = os.getenv("TO_EMAIL")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
@@ -19,13 +17,13 @@ def fetch_latest_vix():
     req = Request(FRED_CSV_URL, headers={"User-Agent": "Mozilla/5.0"})
     with urlopen(req) as resp:
         text = resp.read().decode("utf-8")
-
     reader = csv.DictReader(io.StringIO(text))
+    date_key = "DATE" if "DATE" in reader.fieldnames else "observation_date"
     last_date, last_value = None, None
     for row in reader:
         if row["VIXCLS"] in ("", "."):
             continue
-        last_date = row["DATE"]
+        last_date = row[date_key]
         last_value = float(row["VIXCLS"])
     return last_date, last_value
 
@@ -34,7 +32,6 @@ def send_email(subject, body):
         print("[DRY_RUN] Subject:", subject)
         print(body)
         return
-
     url = "https://api.sendgrid.com/v3/mail/send"
     payload = {
         "personalizations": [{"to": [{"email": TO_EMAIL}]}],
@@ -52,7 +49,6 @@ def send_email(subject, body):
 def main():
     date_str, value = fetch_latest_vix()
     print(f"[INFO] Latest VIXCLS: {value:.2f} (date={date_str}), threshold={THRESHOLD}")
-
     if value > THRESHOLD:
         subject = f"[VIXアラート] {THRESHOLD}超え: {value:.2f}（{date_str}）"
         body = (
