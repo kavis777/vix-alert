@@ -50,13 +50,15 @@ def main():
     date_str, value = fetch_latest_vix()
     print(f"[INFO] Latest VIXCLS: {value:.2f} (date={date_str}), threshold={THRESHOLD}")
     if value > THRESHOLD:
-        subject = f"[VIXアラート] {THRESHOLD}超え: {value:.2f}（{date_str}）"
+        subject = f"[VIXアラート] {date_str} 終値 {value:.2f} (閾値 {THRESHOLD}超)"
         body = (
             f"VIX 終値が閾値を上回りました。\n"
             f"- 日付: {date_str}\n"
             f"- VIX 終値: {value:.2f}\n"
             f"- 閾値: {THRESHOLD}\n"
             "データソース: FRED VIXCLS\n"
+            "\n"
+            "このメールはGitHub Actions + SendGridによる自動通知です。"
         )
         send_email(subject, body)
         print("[INFO] Alert sent.")
