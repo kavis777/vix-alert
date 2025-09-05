@@ -2,12 +2,23 @@
 import os
 import requests
 import yfinance as yf
+from datetime import datetime, time as dtime
+from zoneinfo import ZoneInfo
 
 THRESHOLD = float(os.getenv("THRESHOLD"))
 TO_EMAIL = os.getenv("TO_EMAIL")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 DRY_RUN = (os.getenv("DRY_RUN") or "").lower() == "true"
+
+def us_market_is_open_now():
+    ny = ZoneInfo("America/New_York")
+    now = datetime.now(ny)
+    if now.weekday() >= 5:  # 5=Sat, 6=Sun
+        return False
+    open_t = dtime(9, 30)
+    close_t = dtime(16, 0)
+    return open_t <= now.time() < close_t
 
 def fetch_latest_vix():
     vix = yf.Ticker("^VIX")
@@ -37,8 +48,12 @@ def send_email(subject, body):
     r.raise_for_status()
 
 def main():
+    if not us_market_is_open_now():
+        print("[INFO] US market closed. Skip.")
+        return
+
     date_str, value = fetch_latest_vix()
-    print(f"[INFO] Latest VIXCLS (Yahoo Finance): {value:.2f} (date={date_str}), threshold={THRESHOLD}")
+    print(f"[INFO] Latest VIX (Yahoo Finance): {value:.2f} (date={date_str}), threshold={THRESHOLD}")
     if value > THRESHOLD:
         subject = f"[VIXアラート] {date_str} 終値 {value:.2f} (閾値 {THRESHOLD}超)"
         body = (
