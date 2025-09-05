@@ -2,26 +2,54 @@ name: vix-alert
 
 on:
   schedule:
-    - cron: "0 * * * *" # 毎時0分（UTC基準）
-  workflow_dispatch: {} # 手動実行も可能
+    - cron: "0 * * * *" # 毎時0分（UTC）
+  workflow_dispatch: {}
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    concurrency:
-      group: vix-alert-daily
-      cancel-in-progress: false
+
     steps:
       - uses: actions/checkout@v4
+
+      # 今日のNY日付を出力（クローズ後～23:59に送るため当日キーを使う）
+      - name: Set NY date
+        id: set-date
+        run: echo "date_ny=$(TZ=America/New_York date +%F)" >> $GITHUB_OUTPUT
+
+      # 当日送信済みマーカーを復元
+      - name: Restore daily send cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: .vix_cache
+          key: vix-sent-${{ steps.set-date.outputs.date_ny }}
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - run: pip install -r requirements.txt
+
       - name: Run VIX alert
+        id: run
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           THRESHOLD: ${{ vars.THRESHOLD }}
           DRY_RUN: ${{ vars.DRY_RUN }}
-        run: python script/vix_alert.py
+        run: |
+          python script/vix_alert.py
+          if [ -f .vix_cache/sent.marker ]; then
+            echo "sent=true" >> $GITHUB_OUTPUT
+          else
+            echo "sent=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Save daily send cache if sent
+        if: steps.run.outputs.sent == 'true' && steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .vix_cache
+          key: vix-sent-${{ steps.set-date.outputs.date_ny }}
