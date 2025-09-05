@@ -13,7 +13,7 @@ FRED の VIXCLS（終値）を毎朝 JST でチェックし、**35 超**なら**
    - **Variables**（任意）
      - `THRESHOLD` : 既定 35
      - `DRY_RUN` : `"true"`で送信せずログのみ
-3. スケジュール: `15:00 UTC` 実行 → JST で翌日 `00:00`
+3. スケジュール: vix-alert.yml の cron を参照
 
 ## 手動テスト
 

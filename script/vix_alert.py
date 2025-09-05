@@ -1,11 +1,7 @@
 # script/vix_alert.py
 import os
-import csv
-import io
-from urllib.request import urlopen, Request
 import requests
-
-FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS"
+import yfinance as yf
 
 THRESHOLD = float(os.getenv("THRESHOLD"))
 TO_EMAIL = os.getenv("TO_EMAIL")
@@ -14,18 +10,12 @@ SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 DRY_RUN = (os.getenv("DRY_RUN") or "").lower() == "true"
 
 def fetch_latest_vix():
-    req = Request(FRED_CSV_URL, headers={"User-Agent": "Mozilla/5.0"})
-    with urlopen(req) as resp:
-        text = resp.read().decode("utf-8")
-    reader = csv.DictReader(io.StringIO(text))
-    date_key = "DATE" if "DATE" in reader.fieldnames else "observation_date"
-    last_date, last_value = None, None
-    for row in reader:
-        if row["VIXCLS"] in ("", "."):
-            continue
-        last_date = row[date_key]
-        last_value = float(row["VIXCLS"])
-    return last_date, last_value
+    vix = yf.Ticker("^VIX")
+    hist = vix.history(period="5d")
+    last_row = hist.tail(1).iloc[0]
+    date_str = str(last_row.name.date())
+    value = float(last_row["Close"])
+    return date_str, value
 
 def send_email(subject, body):
     if DRY_RUN:
@@ -48,7 +38,7 @@ def send_email(subject, body):
 
 def main():
     date_str, value = fetch_latest_vix()
-    print(f"[INFO] Latest VIXCLS: {value:.2f} (date={date_str}), threshold={THRESHOLD}")
+    print(f"[INFO] Latest VIXCLS (Yahoo Finance): {value:.2f} (date={date_str}), threshold={THRESHOLD}")
     if value > THRESHOLD:
         subject = f"[VIXアラート] {date_str} 終値 {value:.2f} (閾値 {THRESHOLD}超)"
         body = (
@@ -56,7 +46,7 @@ def main():
             f"- 日付: {date_str}\n"
             f"- VIX 終値: {value:.2f}\n"
             f"- 閾値: {THRESHOLD}\n"
-            "データソース: FRED VIXCLS\n"
+            "データソース: Yahoo Finance (^VIX)\n"
             "\n"
             "このメールはGitHub Actions + SendGridによる自動通知です。"
         )

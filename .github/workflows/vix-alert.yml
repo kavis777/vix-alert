@@ -2,8 +2,7 @@ name: vix-alert
 
 on:
   schedule:
-    # 15:00 UTC = 翌日 00:00 JST
-    - cron: "0 15 * * *"
+    - cron: "0 22 * * *" # 07:00 JST (22:00 UTC前日)
   workflow_dispatch: {} # 手動実行も可能
 
 jobs:
